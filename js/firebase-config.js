@@ -1,10 +1,11 @@
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyBdZgfENLwij4eRQ8HbvghOBliEBdaA-YU",
+  authDomain: "shiftkanri-be018.firebaseapp.com",
+  projectId: "shiftkanri-be018",
+  storageBucket: "shiftkanri-be018.firebasestorage.app",
+  messagingSenderId: "1073758060862",
+  appId: "1:1073758060862:web:912d0964d46d03f99c2c6f",
+  measurementId: "G-6ZMGWGBY6S"
 };
 
 // Firebase の初期化
