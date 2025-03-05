@@ -1,0 +1,140 @@
+/* 全体のスタイル */
+body {
+    background-color: #f8f9fa;
+    padding: 20px 0;
+}
+
+.container {
+    max-width: 1200px;
+}
+
+/* ログインフォーム */
+.login-container {
+    max-width: 400px;
+    margin: 50px auto;
+}
+
+/* シフトグリッド */
+.shift-grid {
+    overflow-x: auto;
+}
+
+.shift-grid table {
+    min-width: 100%;
+    border-collapse: collapse;
+}
+
+.shift-grid th, .shift-grid td {
+    padding: 8px;
+    border: 1px solid #dee2e6;
+    text-align: center;
+}
+
+.shift-grid th {
+    background-color: #f8f9fa;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.shift-grid .date-header {
+    min-width: 40px;
+    white-space: nowrap;
+}
+
+.shift-grid .weekend {
+    background-color: #fcf0f0;
+}
+
+.shift-grid .sunday {
+    color: #dc3545;
+}
+
+.shift-grid .saturday {
+    color: #0d6efd;
+}
+
+.shift-checkbox {
+    width: 20px;
+    height: 20px;
+}
+
+/* スロット別の色分け */
+.slot-early {
+    background-color: #e6f7ff;
+}
+
+.slot-late {
+    background-color: #fff7e6;
+}
+
+.slot-night {
+    background-color: #f5e6ff;
+}
+
+/* 管理者用表示 */
+.admin-grid .available-yes {
+    background-color: #d4edda;
+    color: #155724;
+}
+
+.admin-grid .available-no {
+    background-color: #f8d7da;
+    color: #721c24;
+}
+
+.admin-grid .available-count {
+    font-weight: bold;
+}
+
+.employee-note {
+    font-size: 0.8em;
+    color: #6c757d;
+    max-width: 200px;
+    white-space: normal;
+    word-break: break-word;
+}
+
+/* ノート表示用ツールチップ */
+.note-tooltip {
+    position: relative;
+    display: inline-block;
+}
+
+.note-tooltip .tooltip-text {
+    visibility: hidden;
+    width: 200px;
+    background-color: #555;
+    color: #fff;
+    text-align: center;
+    border-radius: 6px;
+    padding: 5px;
+    position: absolute;
+    z-index: 1;
+    bottom: 125%;
+    left: 50%;
+    margin-left: -100px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.note-tooltip:hover .tooltip-text {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* モバイル対応 */
+@media (max-width: 768px) {
+    .shift-grid {
+        font-size: 0.9em;
+    }
+    
+    .shift-grid th, .shift-grid td {
+        padding: 5px;
+    }
+    
+    .shift-checkbox {
+        width: 16px;
+        height: 16px;
+    }
+}
