@@ -148,11 +148,11 @@ function initAdmin() {
       filteredEmployees = cachedEmployees.filter(emp => emp.department === departmentId);
     }
     
-    // シフトグリッドを生成
+    // シフトグリッドを生成（レイアウト変更: 縦列に名前、横列に日付）
     generateAdminShiftGrid(year, month, filteredEmployees, cachedPreferences);
   }
   
-  // 管理者用シフトグリッドの生成
+  // 管理者用シフトグリッドの生成（レイアウト変更版）
   function generateAdminShiftGrid(year, month, employees, preferences) {
     const daysInMonth = app.getDaysInMonth(year, month);
     const shiftSlots = app.getShiftSlots();
@@ -163,31 +163,35 @@ function initAdmin() {
       filteredSlots = shiftSlots.filter(slot => slot.id === selectedSlot);
     }
     
-    // テーブルの作成
+    // テーブルの作成（縦列に名前、横列に日付）
     let html = `
     <div class="admin-grid">
       <table id="admin-shift-table" class="table table-bordered table-sm">
         <thead>
           <tr>
-            <th rowspan="2">日付</th>
+            <th rowspan="2">従業員名</th>
     `;
     
-    // 従業員のヘッダー
-    employees.forEach(emp => {
-      html += `<th colspan="${filteredSlots.length}">${emp.name}</th>`;
-    });
+    // 日付のヘッダー
+    for (let day = 1; day <= daysInMonth; day++) {
+      const weekdayIndex = app.getWeekdayIndex(year, month, day);
+      const weekdayClass = app.getWeekdayClass(weekdayIndex);
+      const weekendClass = app.isWeekend(weekdayIndex) ? 'class="weekend"' : '';
+      
+      html += `<th colspan="${filteredSlots.length}" ${weekendClass}>${month}/${day}</th>`;
+    }
     
     html += `
           </tr>
           <tr>
     `;
     
-    // スロットのサブヘッダー
-    employees.forEach(emp => {
+    // スロットのサブヘッダー（各日の下にスロット名）
+    for (let day = 1; day <= daysInMonth; day++) {
       filteredSlots.forEach(slot => {
         html += `<th class="${slot.className}">${slot.name}</th>`;
       });
-    });
+    }
     
     html += `
           </tr>
@@ -195,20 +199,17 @@ function initAdmin() {
         <tbody>
     `;
     
-    // 日付ごとの行
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = app.formatDate(year, month, day);
-      const weekdayIndex = app.getWeekdayIndex(year, month, day);
-      const weekdayClass = app.getWeekdayClass(weekdayIndex);
-      const weekendClass = app.isWeekend(weekdayIndex) ? 'weekend' : '';
-      
+    // 従業員ごとの行
+    employees.forEach(emp => {
       html += `
-        <tr class="${weekendClass}">
-          <td class="date-header ${weekdayClass}">${month}/${day}</td>
+        <tr>
+          <td>${emp.name}</td>
       `;
       
-      // 各従業員の各スロットの状態を表示
-      employees.forEach(emp => {
+      // 各日付・スロットの組み合わせの状態を表示
+      for (let day = 1; day <= daysInMonth; day++) {
+        const date = app.formatDate(year, month, day);
+        
         // この従業員の希望データを検索
         const empPref = preferences.find(p => p.employeeId === emp.id);
         
@@ -235,10 +236,10 @@ function initAdmin() {
             </td>
           `;
         });
-      });
+      }
       
       html += '</tr>';
-    }
+    });
     
     // 集計行を追加
     html += `
@@ -246,31 +247,26 @@ function initAdmin() {
           <td><strong>合計可能数</strong></td>
     `;
     
-    // 各従業員と各スロットの合計可能数を計算
-    employees.forEach(emp => {
+    // 各日付・スロットの合計可能数を計算
+    for (let day = 1; day <= daysInMonth; day++) {
+      const date = app.formatDate(year, month, day);
+      
       filteredSlots.forEach(slot => {
+        const slotKey = `${date}_${slot.id}`;
         let availableCount = 0;
         
-        // この従業員の希望データを検索
-        const empPref = preferences.find(p => p.employeeId === emp.id);
-        
-        if (empPref && empPref.preferences) {
-          // 月内の各日について
-          for (let day = 1; day <= daysInMonth; day++) {
-            const date = app.formatDate(year, month, day);
-            const slotKey = `${date}_${slot.id}`;
-            
-            if (empPref.preferences[slotKey] && empPref.preferences[slotKey].available) {
-              availableCount++;
-            } else if (!empPref.preferences[slotKey] && emp.employmentType === 'fulltime') {
-              // フルタイムの場合、明示的に設定されていなければデフォルトで可能
+        // 全従業員について勤務可能かチェック
+        employees.forEach(emp => {
+          const empPref = preferences.find(p => p.employeeId === emp.id);
+          
+          if (empPref && empPref.preferences && empPref.preferences[slotKey] && empPref.preferences[slotKey].available) {
+            availableCount++;
+          } else if (!empPref || !empPref.preferences || !empPref.preferences[slotKey]) {
+            if (emp.employmentType === 'fulltime') {
               availableCount++;
             }
           }
-        } else if (emp.employmentType === 'fulltime') {
-          // フルタイムでまだ希望が出ていない場合、すべて可能
-          availableCount = daysInMonth;
-        }
+        });
         
         html += `
           <td class="${slot.className}">
@@ -278,7 +274,7 @@ function initAdmin() {
           </td>
         `;
       });
-    });
+    }
     
     html += `
         </tr>
