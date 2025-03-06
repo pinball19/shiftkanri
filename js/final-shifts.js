@@ -716,6 +716,7 @@ function displayGeneratedShifts(shifts, yearMonth, employees) {
   `;
   
   // 各日の下にスロット名
+// 各日の下にスロット名
   for (let day = 1; day <= daysInMonth; day++) {
     shiftSlots.forEach(slot => {
       html += `<th class="${slot.className}">${slot.name}</th>`;
