@@ -242,4 +242,304 @@ async function generateShifts() {
     const generatedShiftContainer = document.getElementById('generated-shift-container');
     generatedShiftContainer.innerHTML = '<div class="text-center p-4"><div class="spinner-border"></div><p class="mt-3">シフトを生成中...</p></div>';
     
-    // 制約条件を
+    // 制約条件を取得
+    const constraints = {
+      maxConsecutiveDays: parseInt(document.getElementById('max-consecutive-days').value, 10),
+      maxShiftsPerDay: parseInt(document.getElementById('max-shifts-per-day').value, 10),
+      restBetweenShifts: parseInt(document.getElementById('rest-between-shifts').value, 10)
+    };
+    
+    // 全員の希望と従業員データを読み込む
+    const [preferences, employees] = await Promise.all([
+      loadAllPreferences(yearMonth),
+      loadAllEmployees()
+    ]);
+    
+    // シフト自動生成アルゴリズムを実行
+    generatedShifts = window.shiftAlgorithm.generateAutomaticShifts(
+      preferences,
+      employees,
+      requiredStaff,
+      constraints
+    );
+    
+    // 生成結果を表示
+    displayGeneratedShifts(generatedShifts, yearMonth, employees);
+    
+    // 保存ボタンを有効化
+    document.getElementById('save-final-shifts-btn').disabled = false;
+    
+  } catch (error) {
+    console.error('シフト生成エラー:', error);
+    alert('シフトの生成に失敗しました');
+  }
+}
+
+// 生成されたシフトを表示する
+function displayGeneratedShifts(shifts, yearMonth, employees) {
+  const generatedShiftContainer = document.getElementById('generated-shift-container');
+  const [year, month] = yearMonth.split('-').map(num => parseInt(num, 10));
+  const daysInMonth = app.getDaysInMonth(year, month);
+  const shiftSlots = app.getShiftSlots();
+  
+  // 従業員IDから名前を取得する関数
+  const getEmployeeName = (id) => {
+    const employee = employees.find(e => e.id === id || e.employeeId === id);
+    return employee ? employee.name : id;
+  };
+  
+  // テーブルを生成
+  let html = `
+    <h4>生成されたシフト (${yearMonth})</h4>
+    <div class="table-responsive">
+      <table class="table table-bordered table-sm">
+        <thead>
+          <tr>
+            <th>日付</th>
+  `;
+  
+  // スロットヘッダー
+  shiftSlots.forEach(slot => {
+    html += `<th>${slot.name}<br>(${slot.startTime}～${slot.endTime})</th>`;
+  });
+  
+  html += `
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  // 日付ごとの行
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = app.formatDate(year, month, day);
+    const weekdayIndex = app.getWeekdayIndex(year, month, day);
+    const weekdayClass = app.getWeekdayClass(weekdayIndex);
+    const weekendClass = app.isWeekend(weekdayIndex) ? 'table-danger' : '';
+    
+    html += `
+      <tr class="${weekendClass}">
+        <td class="${weekdayClass}">${month}/${day}</td>
+    `;
+    
+    // 各スロットの割り当て
+    shiftSlots.forEach(slot => {
+      const shiftKey = `${date}_${slot.id}`;
+      const assignedIds = shifts[shiftKey] || [];
+      
+      // 割り当てられた従業員名をリスト表示
+      let assignedNames = '';
+      if (assignedIds.length > 0) {
+        assignedNames = assignedIds.map(id => getEmployeeName(id)).join('<br>');
+      } else {
+        assignedNames = '<span class="text-muted">割り当てなし</span>';
+      }
+      
+      html += `
+        <td class="${slot.className}" data-date="${date}" data-slot-id="${slot.id}">
+          ${assignedNames}
+        </td>
+      `;
+    });
+    
+    html += '</tr>';
+  }
+  
+  html += `
+        </tbody>
+      </table>
+    </div>
+    <div class="alert alert-warning mt-3">
+      手動調整が必要な場合は、シフトセルをクリックして編集できます（将来の機能）
+    </div>
+  `;
+  
+  generatedShiftContainer.innerHTML = html;
+}
+
+// 確定シフトを保存する
+async function saveFinalShifts() {
+  if (!generatedShifts) {
+    alert('先にシフトを生成してください');
+    return;
+  }
+  
+  const adminShiftMonth = document.getElementById('admin-shift-month');
+  const yearMonth = adminShiftMonth.value;
+  
+  if (!yearMonth) {
+    alert('月を選択してください');
+    return;
+  }
+  
+  try {
+    // 保存中の表示
+    document.getElementById('save-final-shifts-btn').disabled = true;
+    document.getElementById('save-final-shifts-btn').innerHTML = '<span class="spinner-border spinner-border-sm"></span> 保存中...';
+    
+    // 保存するデータを準備
+    const data = {
+      month: yearMonth,
+      shifts: generatedShifts,
+      requiredStaff,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+      createdBy: app.getCurrentUser()
+    };
+    
+    // Firestore に保存
+    await db.collection('finalShifts').doc(yearMonth).set(data);
+    
+    alert('確定シフトを保存しました');
+    
+    // ボタンを元に戻す
+    document.getElementById('save-final-shifts-btn').disabled = false;
+    document.getElementById('save-final-shifts-btn').textContent = '確定シフトを保存';
+    
+  } catch (error) {
+    console.error('確定シフトの保存エラー:', error);
+    alert('確定シフトの保存に失敗しました');
+    
+    // ボタンを元に戻す
+    document.getElementById('save-final-shifts-btn').disabled = false;
+    document.getElementById('save-final-shifts-btn').textContent = '確定シフトを保存';
+  }
+}
+
+// 従業員用の確定シフト表示機能の初期化
+function initEmployeeFinalShifts() {
+  // 従業員用のシフト確認セクションを追加
+  const employeeContainer = document.getElementById('employee-container');
+  
+  const finalShiftSection = document.createElement('div');
+  finalShiftSection.className = 'card mb-4';
+  finalShiftSection.innerHTML = `
+    <div class="card-body">
+      <h2 class="card-title">確定シフト</h2>
+      <div id="employee-final-shift-container">
+        <div class="alert alert-info">
+          確定シフトが公開されるとここに表示されます
+        </div>
+      </div>
+    </div>
+  `;
+  
+  employeeContainer.appendChild(finalShiftSection);
+  
+  // 月が変更されたときに確定シフトを読み込む
+  const shiftMonth = document.getElementById('shift-month');
+  shiftMonth.addEventListener('change', loadEmployeeFinalShift);
+  
+  // 初期ロード
+  loadEmployeeFinalShift();
+}
+
+// 従業員の確定シフトを読み込む
+async function loadEmployeeFinalShift() {
+  const shiftMonth = document.getElementById('shift-month');
+  const yearMonth = shiftMonth.value;
+  const employeeId = app.getCurrentUser();
+  
+  if (!yearMonth || !employeeId) return;
+  
+  const container = document.getElementById('employee-final-shift-container');
+  
+  try {
+    // 読み込み中表示
+    container.innerHTML = '<div class="text-center p-3"><div class="spinner-border"></div><p class="mt-2">読み込み中...</p></div>';
+    
+    // 確定シフトを取得
+    const docRef = db.collection('finalShifts').doc(yearMonth);
+    const doc = await docRef.get();
+    
+    if (!doc.exists) {
+      container.innerHTML = '<div class="alert alert-info">この月の確定シフトはまだ公開されていません</div>';
+      return;
+    }
+    
+    const finalShiftData = doc.data();
+    const shifts = finalShiftData.shifts || {};
+    
+    // この従業員に割り当てられたシフトを抽出
+    const myShifts = {};
+    Object.entries(shifts).forEach(([key, assignedIds]) => {
+      if (assignedIds.includes(employeeId)) {
+        myShifts[key] = true;
+      }
+    });
+    
+    // 従業員のシフト表示
+    displayEmployeeFinalShift(myShifts, yearMonth);
+    
+  } catch (error) {
+    console.error('確定シフトの読み込みエラー:', error);
+    container.innerHTML = '<div class="alert alert-danger">確定シフトの読み込みに失敗しました</div>';
+  }
+}
+
+// 従業員の確定シフトを表示
+function displayEmployeeFinalShift(myShifts, yearMonth) {
+  const container = document.getElementById('employee-final-shift-container');
+  const [year, month] = yearMonth.split('-').map(num => parseInt(num, 10));
+  const daysInMonth = app.getDaysInMonth(year, month);
+  const shiftSlots = app.getShiftSlots();
+  
+  // テーブルを生成
+  let html = `
+    <div class="table-responsive">
+      <table class="table table-bordered table-sm">
+        <thead>
+          <tr>
+            <th>日付</th>
+  `;
+  
+  // スロットヘッダー
+  shiftSlots.forEach(slot => {
+    html += `<th>${slot.name}<br>(${slot.startTime}～${slot.endTime})</th>`;
+  });
+  
+  html += `
+          </tr>
+        </thead>
+        <tbody>
+  `;
+  
+  // 日付ごとの行
+  for (let day = 1; day <= daysInMonth; day++) {
+    const date = app.formatDate(year, month, day);
+    const weekdayIndex = app.getWeekdayIndex(year, month, day);
+    const weekdayClass = app.getWeekdayClass(weekdayIndex);
+    const weekendClass = app.isWeekend(weekdayIndex) ? 'table-danger' : '';
+    
+    html += `
+      <tr class="${weekendClass}">
+        <td class="${weekdayClass}">${month}/${day}</td>
+    `;
+    
+    // 各スロットの割り当て
+    shiftSlots.forEach(slot => {
+      const shiftKey = `${date}_${slot.id}`;
+      const isAssigned = myShifts[shiftKey] || false;
+      
+      const cellClass = isAssigned ? 'table-success' : '';
+      const statusText = isAssigned ? '<strong>出勤</strong>' : '休み';
+      
+      html += `
+        <td class="${cellClass} ${slot.className}">
+          ${statusText}
+        </td>
+      `;
+    });
+    
+    html += '</tr>';
+  }
+  
+  html += `
+        </tbody>
+      </table>
+    </div>
+  `;
+  
+  container.innerHTML = html;
+}
+
+// admin.js内のinitAdmin()から呼び出されるように設定
+// employee.js内のinitEmployee()から呼び出されるように設定
