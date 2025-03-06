@@ -36,6 +36,9 @@ function initAdmin() {
   // 初期ロード
   loadAdminData();
 
+  // シフト確定機能を初期化
+  initFinalShifts();
+
   // 部署フィルターの初期化
   function initDepartmentFilter() {
     // 既存のオプションをクリア
