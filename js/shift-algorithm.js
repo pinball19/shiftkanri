@@ -13,8 +13,12 @@ function generateAutomaticShifts(preferences, employees, requiredStaff, constrai
   // 結果を格納するオブジェクト
   const finalShifts = {};
   
-  // 日付とシフトスロットの組み合わせを取得
-  const dateSlotCombinations = getAllDateSlotCombinations(preferences);
+  // 対象月を取得（最初の希望データから）
+  const yearMonth = Object.values(preferences)[0]?.month || getDefaultYearMonth();
+  console.log('対象月:', yearMonth);
+  
+  // 日付とシフトスロットの組み合わせを取得（月全体を対象に）
+  const dateSlotCombinations = getAllDateSlotCombinations(yearMonth);
   console.log('処理対象の日付×スロット組み合わせ数:', dateSlotCombinations.length);
   
   // 各日付・スロットごとに割り当てを行う
@@ -90,38 +94,52 @@ function generateAutomaticShifts(preferences, employees, requiredStaff, constrai
   return finalShifts;
 }
 
-// 日付とスロットの全組み合わせを取得
-function getAllDateSlotCombinations(preferences) {
+// 現在の年月を取得（デフォルト値）
+function getDefaultYearMonth() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+}
+
+// 日付とスロットの全組み合わせを取得（修正版：月全体を対象に）
+function getAllDateSlotCombinations(yearMonth) {
   console.log('日付×スロットの組み合わせを生成中...');
   
   const combinations = [];
-  const dateSet = new Set();
-  const slotSet = new Set();
   
-  // すべての希望データから日付とスロットの組み合わせを抽出
-  Object.keys(preferences).forEach(employeeId => {
-    const empPrefs = preferences[employeeId].preferences || {};
-    Object.keys(empPrefs).forEach(key => {
-      const [date, slotId] = key.split('_');
-      dateSet.add(date);
-      slotSet.add(slotId);
-    });
-  });
+  // yearMonth から年と月を取得
+  const [year, month] = yearMonth.split('-').map(num => parseInt(num, 10));
+  
+  // 指定された月の日数を取得
+  const daysInMonth = new Date(year, month, 0).getDate();
+  
+  // シフトスロットの定義
+  const shiftSlots = [
+    { id: 'early', name: '早番' },
+    { id: 'middle', name: '中番' },
+    { id: 'late', name: '遅番' },
+    { id: 'night', name: '夜勤' }
+  ];
+  
+  // 月の全日程を生成
+  const dates = [];
+  for (let day = 1; day <= daysInMonth; day++) {
+    const formattedDay = String(day).padStart(2, '0');
+    dates.push(`${year}-${String(month).padStart(2, '0')}-${formattedDay}`);
+  }
+  
+  console.log(`生成された日付: ${dates.length}日 (${year}年${month}月の全日程)`);
+  console.log('シフトスロット:', shiftSlots.map(slot => slot.id));
   
   // 日付とスロットの全組み合わせを生成
-  const dates = Array.from(dateSet).sort();
-  const slots = Array.from(slotSet).sort();
-  
-  console.log('抽出された日付:', dates);
-  console.log('抽出されたスロット:', slots);
-  
   dates.forEach(date => {
-    slots.forEach(slotId => {
-      combinations.push({ date, slotId });
+    shiftSlots.forEach(slot => {
+      combinations.push({ date, slotId: slot.id });
     });
   });
   
-  console.log(`生成された組み合わせ数: ${combinations.length} (${dates.length}日 × ${slots.length}スロット)`);
+  console.log(`生成された組み合わせ数: ${combinations.length} (${dates.length}日 × ${shiftSlots.length}スロット)`);
   
   // 日付でソート
   combinations.sort((a, b) => {
